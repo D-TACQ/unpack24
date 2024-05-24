@@ -1,5 +1,10 @@
 /* unpack24.cpp
  * unpacks24 bit data back to original 32 bit pattern with channel id
+ *
+ * unpack24 NCHAN NSPAD
+ * eg
+ * ./unpack24 32 1 < DATA/shot_data | hexdump -e '33/4 "%08x," "\n"' | cut -d, -f 1-4,33 | more
+ * nc UUT 4210 | unpack 32 1 > big-raw-file
  */
 
 #include <stdio.h>
