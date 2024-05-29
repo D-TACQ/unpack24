@@ -23,7 +23,25 @@ unsigned ch_id(int ic)
 	return ic|site<<5;
 
 }
-int unpack24(FILE* fin, FILE* fout)
+
+class Unpack24 {
+public:
+	virtual int unpack24(FILE* fin, FILE* fout) = 0;
+
+	static Unpack24& factory();
+};
+
+class Unpack24b: public Unpack24 {
+public:
+	virtual int unpack24(FILE* fin, FILE* fout);
+};
+
+class Unpack24lw: public Unpack24 {
+public:
+	virtual int unpack24(FILE* fin, FILE* fout);
+};
+
+int Unpack24b::unpack24(FILE* fin, FILE* fout)
 {
 	int issb = G::nchan*3 + G::nspad*4;
 	int ossw = G::nchan + G::nspad;
@@ -49,6 +67,53 @@ int unpack24(FILE* fin, FILE* fout)
 	return 0;
 }
 
+#define AAS 24
+#define BBS 16
+#define CCS  8
+#define DDS  0
+
+#define AA (0xFFU<<AAS)
+#define BB (0xFFU<<BBS)
+#define CC (0xFFU<<CCS)
+#define DD (0xFFU<<DDS)
+
+int Unpack24lw::unpack24(FILE* fin, FILE* fout)
+{
+	int issw_d24 = G::nchan*3/4;
+	int issw = issw_d24 + G::nspad;
+	int ossw = G::nchan + G::nspad;
+	unsigned *ibuf = new unsigned[issw];
+	unsigned *obuf = new unsigned[ossw];
+
+	while(fread(ibuf, sizeof(unsigned), issw, fin) == issw){
+		unsigned *obp = obuf;
+		unsigned chid = 0x20;
+		for (int iw = 0; iw < issw_d24; iw +=3, obp += 4){
+			obuf[0] =  ibuf[iw+0]&(AA|BB|CC)                                  | chid++;
+			obuf[1] = (ibuf[iw+0]&(DD)) << 24      | (ibuf[iw+1]&(AA|BB)) >>8 | chid++;
+			obuf[2] = (ibuf[iw+1]&(CC|DD)) << 16   | (ibuf[iw+2]&(AA)) >>16   | chid++;
+			obuf[3] = (ibuf[iw+2]&(BB|CC|DD)) << 8 |                            chid++;
+		}
+		for (int iw = 0; iw < G::nspad; iw +=1, obp += 1){
+			*obp = ibuf[issw_d24+iw];
+		}
+		if (fwrite(obuf, sizeof(unsigned), ossw, fout) != ossw){
+			return -1;
+		}
+	}
+	return 0;
+}
+
+Unpack24& Unpack24::factory()
+{
+	const char* value = getenv("UNPACK24LW");
+	if (value && *value == '1'){
+		return *new Unpack24lw;
+	}else{
+		return *new Unpack24b;
+	}
+}
+
 int main(int argc, char* argv[])
 {
 	if (argc >= 2) G::nchan = atoi(argv[1]);
@@ -58,5 +123,5 @@ int main(int argc, char* argv[])
 	assert(G::nspad >= 0 && G::nspad <= 16);
 	assert(sizeof(unsigned) == 4);
 
-	return unpack24(stdin, stdout);
+	return Unpack24::factory().unpack24(stdin, stdout);
 }
