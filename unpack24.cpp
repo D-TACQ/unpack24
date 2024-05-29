@@ -85,14 +85,19 @@ int Unpack24lw::unpack24(FILE* fin, FILE* fout)
 	unsigned *ibuf = new unsigned[issw];
 	unsigned *obuf = new unsigned[ossw];
 
+	fprintf(stderr, "Unpack24lw::unpack24\n");
+
 	while(fread(ibuf, sizeof(unsigned), issw, fin) == issw){
 		unsigned *obp = obuf;
 		unsigned chid = 0x20;
 		for (int iw = 0; iw < issw_d24; iw +=3, obp += 4){
-			obuf[0] =  ibuf[iw+0]&(AA|BB|CC)                                  | chid++;
-			obuf[1] = (ibuf[iw+0]&(DD)) << 24      | (ibuf[iw+1]&(AA|BB)) >>8 | chid++;
-			obuf[2] = (ibuf[iw+1]&(CC|DD)) << 16   | (ibuf[iw+2]&(AA)) >>16   | chid++;
-			obuf[3] = (ibuf[iw+2]&(BB|CC|DD)) << 8 |                            chid++;
+			unsigned *ibp = ibuf+iw;
+
+			obp[0] = (ibp[0]&(AA|BB|CC))                             | chid++;
+			obp[1] = (ibp[0]&(DD      )) << 24| (ibp[1]&(AA|BB)) >>8 | chid++;
+			obp[2] = (ibp[1]&(CC|DD   )) << 16| (ibp[2]&(AA))    >>16| chid++;
+			obp[3] = (ibp[2]&(BB|CC|DD)) << 8                        | chid++;
+
 		}
 		for (int iw = 0; iw < G::nspad; iw +=1, obp += 1){
 			*obp = ibuf[issw_d24+iw];
