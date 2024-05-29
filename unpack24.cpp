@@ -93,10 +93,10 @@ int Unpack24lw::unpack24(FILE* fin, FILE* fout)
 		for (int iw = 0; iw < issw_d24; iw +=3, obp += 4){
 			unsigned *ibp = ibuf+iw;
 
-			obp[0] = (ibp[0]&(AA|BB|CC))                             | chid++;
-			obp[1] = (ibp[0]&(DD      )) << 24| (ibp[1]&(AA|BB)) >>8 | chid++;
-			obp[2] = (ibp[1]&(CC|DD   )) << 16| (ibp[2]&(AA))    >>16| chid++;
-			obp[3] = (ibp[2]&(BB|CC|DD)) << 8                        | chid++;
+			obp[0] = (ibp[0]&(BB|CC|DD)) <<  8                       | chid++;
+			obp[1] = (ibp[0]&(AA      )) >> 16| (ibp[1]&(CC|DD)) <<16| chid++;
+			obp[2] = (ibp[1]&(AA|BB   )) >>  8| (ibp[2]&(DD))    <<24| chid++;
+			obp[3] = (ibp[2]&(AA|BB|CC))                             | chid++;
 
 		}
 		for (int iw = 0; iw < G::nspad; iw +=1, obp += 1){
