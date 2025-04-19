@@ -12,11 +12,6 @@
 #include <assert.h>
 
 
-namespace G {
-	int nchan = 32;
-	int nspad = 1;
-};
-
 unsigned ch_id(int ic)
 {
 	unsigned site = ic/32 + 1;
@@ -25,7 +20,13 @@ unsigned ch_id(int ic)
 }
 
 class Unpack24 {
+protected:	
+	const int nchan;
+	const int nspad;
 public:
+	Unpack24(int _nchan, int _nspad): 
+		nchan(_nchan), nspad(_nspad)
+	{}
 	virtual int unpack24(FILE* fin, FILE* fout) = 0;
 
 	static Unpack24& factory();
@@ -33,32 +34,39 @@ public:
 
 class Unpack24b: public Unpack24 {
 public:
+	Unpack24b(int _nchan, int _nspad): 
+		Unpack24(_nchan, _nspad) 
+	{}
+
 	virtual int unpack24(FILE* fin, FILE* fout);
 };
 
 class Unpack24lw: public Unpack24 {
 public:
+	Unpack24lw(int _nchan, int _nspad): 
+		Unpack24(_nchan, _nspad) 
+	{}
 	virtual int unpack24(FILE* fin, FILE* fout);
 };
 
 int Unpack24b::unpack24(FILE* fin, FILE* fout)
 {
-	int issb = G::nchan*3 + G::nspad*4;
-	int ossw = G::nchan + G::nspad;
+	int issb = nchan*3 + nspad*4;
+	int ossw = nchan + nspad;
 	unsigned char* ibuf = new unsigned char[issb];
 	unsigned* obuf = new unsigned[ossw];
 
 	while(fread(ibuf, 1, issb, fin) == issb){
 		unsigned char* ip = ibuf;
-		for (int ic = 0; ic < G::nchan; ++ic){
+		for (int ic = 0; ic < nchan; ++ic){
 			unsigned char b1 = *ip++;
 			unsigned char b2 = *ip++;
 			unsigned char b3 = *ip++;
 
 			obuf[ic] = b1<<8|b2<<16|b3<<24 | ch_id(ic);
 		}
-		for (int isp = 0; isp < G::nspad; ++isp, ip += sizeof(unsigned)){
-			obuf[G::nchan+isp] = *(unsigned*)ip;
+		for (int isp = 0; isp < nspad; ++isp, ip += sizeof(unsigned)){
+			obuf[nchan+isp] = *(unsigned*)ip;
 		}
 		if (fwrite(obuf, sizeof(unsigned), ossw, fout) != ossw){
 			return -1;
@@ -79,9 +87,9 @@ int Unpack24b::unpack24(FILE* fin, FILE* fout)
 
 int Unpack24lw::unpack24(FILE* fin, FILE* fout)
 {
-	int issw_d24 = G::nchan*3/4;
-	int issw = issw_d24 + G::nspad;
-	int ossw = G::nchan + G::nspad;
+	int issw_d24 = nchan*3/4;
+	int issw = issw_d24 + nspad;
+	int ossw = nchan + nspad;
 	unsigned *ibuf = new unsigned[issw];
 	unsigned *obuf = new unsigned[ossw];
 
@@ -99,7 +107,7 @@ int Unpack24lw::unpack24(FILE* fin, FILE* fout)
 			obp[3] = (ibp[2]&(AA|BB|CC))                             | chid++;
 
 		}
-		for (int iw = 0; iw < G::nspad; iw +=1, obp += 1){
+		for (int iw = 0; iw < nspad; iw +=1, obp += 1){
 			*obp = ibuf[issw_d24+iw];
 		}
 		if (fwrite(obuf, sizeof(unsigned), ossw, fout) != ossw){
@@ -109,13 +117,19 @@ int Unpack24lw::unpack24(FILE* fin, FILE* fout)
 	return 0;
 }
 
+#ifdef MAKE_MAIN
+namespace G {
+	int nchan = 32;
+	int nspad = 1;
+};
+
 Unpack24& Unpack24::factory()
 {
 	const char* value = getenv("UNPACK24LW");
 	if (value && *value == '1'){
-		return *new Unpack24lw;
+		return *new Unpack24lw(G::nchan, G::nspad);
 	}else{
-		return *new Unpack24b;
+		return *new Unpack24b(G::nchan, G::nspad);
 	}
 }
 
@@ -130,3 +144,4 @@ int main(int argc, char* argv[])
 
 	return Unpack24::factory().unpack24(stdin, stdout);
 }
+#endif
